@@ -2,7 +2,10 @@
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <title>Melodrome Premium</title>
     <style>
       body {
@@ -20,6 +23,7 @@
         position: relative;
       }
 
+      /* Poin 3 & 4: Rombak UI List (Card Clickable & Gesit) */
       .list-wrapper {
         display: flex;
         position: relative;
@@ -31,31 +35,50 @@
         width: calc(100% - 35px);
         max-height: calc(100vh - 180px);
         overflow-y: auto;
-        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
       }
+
       li {
         background: #1e1e1e;
-        padding: 14px;
-        margin-bottom: 8px;
-        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 10px;
+        border-radius: 12px;
         display: flex;
-        justify-content: space-between;
         align-items: center;
         border: 1px solid #282828;
+        cursor: pointer;
+        transition:
+          background 0.1s,
+          transform 0.1s;
       }
+
+      /* Efek saat kartu ditekan agar terasa responsif */
+      li:active {
+        transform: scale(0.97);
+        background: #2a2a2a;
+      }
+
+      /* Highlight khusus lagu yang sedang diputar */
       li.playing {
         border-color: #1db954;
-        background: #1c2820;
+        background: rgba(29, 185, 84, 0.1);
       }
+      li.playing span {
+        color: #1db954;
+        font-weight: bold;
+      }
+
       li span {
-        font-size: 14px;
+        font-size: 15px;
         font-weight: 500;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        width: 75%;
+        width: 100%;
+        pointer-events: none;
       }
 
+      /* Panel A-Z */
       .az-index {
         position: fixed;
         right: 10px;
@@ -70,6 +93,7 @@
         z-index: 10;
         max-height: calc(100vh - 240px);
         overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
       }
       .az-letter {
         color: #b3b3b3;
@@ -83,12 +107,13 @@
         justify-content: center;
         border-radius: 50%;
       }
-      .az-letter:hover {
+      .az-letter:hover,
+      .az-letter:active {
         background: #333;
         color: #1db954;
       }
 
-      /* Poin 4 & 5: Fixed Bar dengan Layout Grid Konsisten */
+      /* Bottom Player Bar */
       .bottom-player {
         position: fixed;
         bottom: 0;
@@ -145,28 +170,31 @@
         color: #fff;
         font-size: 20px;
         cursor: pointer;
-        transition: transform 0.1s;
-        padding: 5px;
+        padding: 10px;
+        margin: -5px;
+        outline: none;
       }
       .btn-control:active {
-        transform: scale(0.9);
+        transform: scale(0.8);
       }
       .btn-play-toggle {
         font-size: 28px;
         color: #1db954;
       }
 
+      /* Poin 1: Seek Bar yang dirombak area sentuhnya */
       .seek-container {
         display: flex;
         align-items: center;
         width: 100%;
         gap: 10px;
+        padding: 5px 0;
       }
       .slider-progress {
         -webkit-appearance: none;
         appearance: none;
         width: 100%;
-        height: 5px;
+        height: 6px;
         background: #404040;
         border-radius: 3px;
         outline: none;
@@ -175,8 +203,8 @@
       .slider-progress::-webkit-slider-thumb {
         -webkit-appearance: none;
         appearance: none;
-        width: 12px;
-        height: 12px;
+        width: 16px;
+        height: 16px;
         border-radius: 50%;
         background: #1db954;
         cursor: pointer;
@@ -189,7 +217,9 @@
 
       <div class="list-wrapper">
         <ul id="library-ul">
-          <li style="color: #aaa">Mencari file musik...</li>
+          <li style="color: #aaa; pointer-events: none">
+            Mencari file musik...
+          </li>
         </ul>
         <div class="az-index" id="az-index-div"></div>
       </div>
@@ -199,7 +229,7 @@
 
     <div class="bottom-player">
       <div class="player-info">
-        <div class="track-metadata" id="title-container">
+        <div class="track-metadata">
           <div class="track-title" id="current-title">Tidak memutar lagu</div>
           <div class="track-time" id="track-time-display">00:00 / 00:00</div>
         </div>
@@ -225,8 +255,6 @@
           value="0"
           min="0"
           max="100"
-          oninput="seekingAudio()"
-          onchange="seekAudioFinal()"
         />
       </div>
     </div>
@@ -258,16 +286,20 @@
         if (typeof cordova === "undefined" || !cordova.plugins.permissions)
           return;
 
+        // Poin 2: Menambahkan izin POST_NOTIFICATIONS wajib untuk Lockscreen Android 13
+        const reqPerms = [
+          cordova.plugins.permissions.READ_MEDIA_AUDIO,
+          cordova.plugins.permissions.READ_EXTERNAL_STORAGE,
+          "android.permission.POST_NOTIFICATIONS",
+        ];
+
         cordova.plugins.permissions.requestPermissions(
-          [
-            cordova.plugins.permissions.READ_MEDIA_AUDIO,
-            cordova.plugins.permissions.READ_EXTERNAL_STORAGE,
-          ],
+          reqPerms,
           function () {
             executeScan();
           },
           function () {
-            executeScan();
+            executeScan(); // Terobos jika error status
           },
         );
       }
@@ -294,15 +326,19 @@
         libraryUl.innerHTML = "";
         if (songEntries.length === 0) {
           libraryUl.innerHTML =
-            '<li style="color:#aaa;">Tidak ada file MP3.</li>';
+            '<li style="pointer-events:none; color:#aaa;">Tidak ada file MP3 di folder Music.</li>';
           return;
         }
         songEntries.forEach((entry, index) => {
           const li = document.createElement("li");
           li.setAttribute("id", `song-index-${index}`);
+
+          // Poin 4: Seluruh kartu bisa di-klik untuk memutar lagu
+          li.onclick = () => playSong(index);
+
           if (index === currentIndex) li.className = "playing";
-          li.innerHTML = `<span>${entry.name.replace(".mp3", "")}</span>
-                                <button onclick="playSong(${index})">▶️</button>`;
+
+          li.innerHTML = `<span>${entry.name.replace(".mp3", "")}</span>`;
           libraryUl.appendChild(li);
         });
       }
@@ -319,18 +355,15 @@
         });
       }
 
-      // Poin 3: Logika A-Z mencari tetangga terdekat jika huruf tidak ada
       function scrollToLetter(letter) {
         let targetIndex = songEntries.findIndex(
           (e) => e.name.toUpperCase().localeCompare(letter) >= 0,
         );
-
         if (targetIndex !== -1) {
           document
             .getElementById(`song-index-${targetIndex}`)
             .scrollIntoView({ behavior: "smooth", block: "start" });
         } else {
-          // Jika user mencet huruf Z tapi mentok di Y, scroll ke paling bawah list
           document
             .getElementById(`song-index-${songEntries.length - 1}`)
             .scrollIntoView({ behavior: "smooth", block: "end" });
@@ -348,11 +381,15 @@
         currentIndex = index;
         const entry = songEntries[currentIndex];
         const currentEl = document.getElementById(`song-index-${currentIndex}`);
-        if (currentEl) currentEl.className = "playing";
+
+        if (currentEl) {
+          currentEl.className = "playing";
+          // Opsional: auto-scroll list agar lagu yang diputar ada di tengah layar
+          currentEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
 
         audioPlayer.src = entry.toInternalURL();
 
-        // Poin 4: Logika Marquee (Teks Jalan) Otomatis jika judul panjang
         const cleanTitle = entry.name.replace(".mp3", "");
         if (cleanTitle.length > 30) {
           currentTitle.innerHTML = `<marquee scrollamount="4">${cleanTitle}</marquee>`;
@@ -398,33 +435,42 @@
         playSong(prev);
       }
 
-      // Poin 1: Perbaikan Bug Slider (Seek Bar)
-      audioPlayer.addEventListener("loadedmetadata", () => {
-        seekSlider.max = 100; // Pastikan durasi sudah siap sebelum dihitung
+      // ==========================================
+      // POIN 1: REVISI TOTAL LOGIKA SLIDER (SEEK BAR)
+      // ==========================================
+
+      // 1. Saat user sedang menggeser slider (belum dilepas)
+      seekSlider.addEventListener("input", function () {
+        isUserSeeking = true; // Kunci agar timeupdate dari lagu tidak mengganggu
+        if (!isNaN(audioPlayer.duration)) {
+          const simulatedTime = (this.value / 100) * audioPlayer.duration;
+          formatTimeDisplay(simulatedTime, audioPlayer.duration);
+        }
       });
 
+      // 2. Saat user melepaskan jari dari slider
+      seekSlider.addEventListener("change", function () {
+        if (!isNaN(audioPlayer.duration)) {
+          // Terapkan lompatan waktu ke audio
+          audioPlayer.currentTime = (this.value / 100) * audioPlayer.duration;
+        }
+        // Beri sedikit delay agar tidak terpental kembali sebelum audio merespons
+        setTimeout(() => {
+          isUserSeeking = false;
+        }, 50);
+      });
+
+      // 3. Audio update otomatis
       audioPlayer.addEventListener("timeupdate", () => {
+        // Hanya perbarui slider JIKA user tidak sedang memegangnya
         if (isUserSeeking || isNaN(audioPlayer.duration)) return;
+
         const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
         seekSlider.value = progress;
         formatTimeDisplay(audioPlayer.currentTime, audioPlayer.duration);
       });
 
       audioPlayer.addEventListener("ended", playNext);
-
-      function seekingAudio() {
-        isUserSeeking = true;
-      }
-
-      function seekAudioFinal() {
-        if (isNaN(audioPlayer.duration)) return;
-        const percent = parseFloat(seekSlider.value);
-        audioPlayer.currentTime = (percent / 100) * audioPlayer.duration;
-        // Delay sepersekian detik agar slider tidak terpental balik
-        setTimeout(() => {
-          isUserSeeking = false;
-        }, 100);
-      }
 
       function formatTimeDisplay(current, duration) {
         timeDisplay.innerText = `${cleanTime(current)} / ${cleanTime(duration)}`;
@@ -437,7 +483,9 @@
         return `${min.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
       }
 
-      // Poin 2: Menambahkan parameter ikon wajib agar Android mengizinkan di Lock Screen
+      // ==========================================
+      // POIN 2: NATIVE LOCKSCREEN CONTROLS
+      // ==========================================
       function updateNativeMediaControls(title) {
         if (typeof MusicControls !== "undefined") {
           MusicControls.create(
