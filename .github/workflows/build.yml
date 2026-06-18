@@ -29,9 +29,13 @@ jobs:
           cordova create cordova-app com.pashya.melodrome Melodrome
           rm -rf cordova-app/www/*
           cp -r www/* cordova-app/www/
+          # Memasukkan surat izin khusus
+          cp config.xml cordova-app/config.xml
           cd cordova-app
           cordova platform add android
           cordova plugin add cordova-plugin-file
+          # Menambah plugin pop-up izin
+          cordova plugin add cordova-plugin-android-permissions
           cordova build android
 
       - name: Sediakan Tombol Download APK

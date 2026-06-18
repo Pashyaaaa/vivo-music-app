@@ -86,21 +86,51 @@
       const currentTitle = document.getElementById("current-title");
       let songEntries = [];
 
-      // Menunggu izin Native Android siap
+      // 1. Saat aplikasi siap, cek izin dulu
       document.addEventListener(
         "deviceready",
         () => {
-          currentTitle.innerText = "Siap diputar";
-          scanMusicFolder();
+          currentTitle.innerText = "Memeriksa izin...";
+          requestAudioPermission();
         },
         false,
       );
 
-      function scanMusicFolder() {
-        if (typeof cordova === "undefined") return;
-        libraryUl.innerHTML = "<li>Mencari file .mp3 di HP...</li>";
+      // 2. Fungsi memunculkan pop-up izin Android
+      function requestAudioPermission() {
+        if (typeof cordova === "undefined" || !cordova.plugins.permissions) {
+          scanMusicFolder();
+          return;
+        }
 
-        // Masuk ke folder internal Android /sdcard/Music/
+        var permissions = cordova.plugins.permissions;
+        // Minta izin membaca media audio (Android 13+) dan storage (Android lama)
+        var requiredPermissions = [
+          permissions.READ_MEDIA_AUDIO,
+          permissions.READ_EXTERNAL_STORAGE,
+        ];
+
+        permissions.requestPermissions(
+          requiredPermissions,
+          function (status) {
+            if (status.hasPermission) {
+              currentTitle.innerText = "Izin diberikan, memuat lagu...";
+              scanMusicFolder();
+            } else {
+              libraryUl.innerHTML =
+                '<li style="color:#f44336;">Izin ditolak. Tolong izinkan akses di Pengaturan HP.</li>';
+              currentTitle.innerText = "Akses Ditolak";
+            }
+          },
+          function () {
+            console.error("Sistem gagal memanggil pop-up izin");
+          },
+        );
+      }
+
+      // 3. Scan berjalan seperti biasa
+      function scanMusicFolder() {
+        libraryUl.innerHTML = "<li>Mencari file .mp3 di folder Music...</li>";
         window.resolveLocalFileSystemURL(
           cordova.file.externalRootDirectory + "Music/",
           (dirEntry) => {
@@ -117,7 +147,7 @@
           },
           (err) => {
             libraryUl.innerHTML =
-              '<li>Folder "Music" tidak ditemukan. Buat folder Music dan isi lagu.</li>';
+              '<li>Folder "Music" tidak ditemukan. Buat folder Music di memori internal dan isi lagu MP3.</li>';
           },
         );
       }
