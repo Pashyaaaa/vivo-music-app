@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Melodrome Native</title>
+    <style>
+      body {
+        font-family: "Segoe UI", sans-serif;
+        background-color: #121212;
+        color: #fff;
+        padding: 20px;
+        margin: 0;
+      }
+      .app-container {
+        max-width: 600px;
+        margin: 0 auto;
+      }
+      .player-controls {
+        background: #181818;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        border: 1px solid #282828;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      li {
+        background: #1e1e1e;
+        padding: 12px;
+        margin-bottom: 8px;
+        border-radius: 6px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      button {
+        background: #1db954;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+      .btn-scan {
+        background: #333;
+        width: 100%;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-container">
+      <h2>🎵 Melodrome Native</h2>
+      <button class="btn-scan" onclick="scanMusicFolder()">
+        🔄 AUTO-SCAN FOLDER MUSICC
+      </button>
+
+      <div class="player-controls">
+        <h4 style="margin: 0 0 10px 0; color: #aaa">NOW PLAYING</h4>
+        <h3 id="current-title">Menunggu sinkronisasi...</h3>
+        <audio
+          id="audio-player"
+          controls
+          style="width: 100%; margin-top: 10px"
+        ></audio>
+      </div>
+
+      <h3>📂 Daftar Lagu (<span id="count-library">0</span>)</h3>
+      <ul id="library-ul">
+        <li style="color: #aaa">Sistem sedang dimuat...</li>
+      </ul>
+    </div>
+
+    <script src="cordova.js"></script>
+    <script>
+      const libraryUl = document.getElementById("library-ul");
+      const audioPlayer = document.getElementById("audio-player");
+      const currentTitle = document.getElementById("current-title");
+      let songEntries = [];
+
+      // Menunggu izin Native Android siap
+      document.addEventListener(
+        "deviceready",
+        () => {
+          currentTitle.innerText = "Siap diputar";
+          scanMusicFolder();
+        },
+        false,
+      );
+
+      function scanMusicFolder() {
+        if (typeof cordova === "undefined") return;
+        libraryUl.innerHTML = "<li>Mencari file .mp3 di HP...</li>";
+
+        // Masuk ke folder internal Android /sdcard/Music/
+        window.resolveLocalFileSystemURL(
+          cordova.file.externalRootDirectory + "Music/",
+          (dirEntry) => {
+            let directoryReader = dirEntry.createReader();
+            directoryReader.readEntries(
+              (entries) => {
+                songEntries = entries.filter(
+                  (e) => e.isFile && e.name.endsWith(".mp3"),
+                );
+                renderLibrary();
+              },
+              (err) => console.error(err),
+            );
+          },
+          (err) => {
+            libraryUl.innerHTML =
+              '<li>Folder "Music" tidak ditemukan. Buat folder Music dan isi lagu.</li>';
+          },
+        );
+      }
+
+      function renderLibrary() {
+        libraryUl.innerHTML = "";
+        document.getElementById("count-library").innerText = songEntries.length;
+        if (songEntries.length === 0) {
+          libraryUl.innerHTML =
+            '<li style="color:#aaa;">Tidak ada MP3 di folder Music.</li>';
+          return;
+        }
+        songEntries.forEach((entry, index) => {
+          const li = document.createElement("li");
+          li.innerHTML = `<span>${entry.name.replace(".mp3", "")}</span>
+                                <button onclick="playSong(${index})">Putar</button>`;
+          libraryUl.appendChild(li);
+        });
+      }
+
+      function playSong(index) {
+        const entry = songEntries[index];
+        audioPlayer.src = entry.toInternalURL();
+        currentTitle.innerText = entry.name.replace(".mp3", "");
+        audioPlayer.play();
+      }
+    </script>
+  </body>
+</html>

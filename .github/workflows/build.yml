@@ -1,0 +1,45 @@
+name: Build Melodrome APK
+
+on:
+  push:
+    branches: ["main", "master"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Tarik Kode dari Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Setup Mesin Java (JDK 11)
+        uses: actions/setup-java@v3
+        with:
+          distribution: "temurin"
+          java-version: "11"
+
+      - name: Rakit APK via Cordova CLI
+        run: |
+          npm install -g cordova
+          # Robot GitHub membuat project Cordova sementara
+          cordova create cordova-app com.pashya.melodrome Melodrome
+          # Menghapus web bawaan dan memasukkan folder www milikmu
+          rm -rf cordova-app/www/*
+          cp -r www/* cordova-app/www/
+          cd cordova-app
+          # Pasang platform Android dan Plugin File System
+          cordova platform add android
+          cordova plugin add cordova-plugin-file
+          # Cetak APK!
+          cordova build android
+
+      - name: Sediakan Tombol Download APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: Melodrome-Release-APK
+          path: cordova-app/platforms/android/app/build/outputs/apk/debug/app-debug.apk
