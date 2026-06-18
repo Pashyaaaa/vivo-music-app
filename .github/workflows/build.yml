@@ -25,17 +25,17 @@ jobs:
 
       - name: Rakit APK via Cordova CLI
         run: |
-        npm install -g cordova
-        cordova create cordova-app com.pashya.melodrome Melodrome
-        rm -rf cordova-app/www/*
-        cp -r www/* cordova-app/www/
-        cp config.xml cordova-app/config.xml
-        cd cordova-app
-        cordova platform add android
-        cordova plugin add cordova-plugin-file
-        cordova plugin add cordova-plugin-android-permissions
-        cordova plugin add cordova-plugin-music-controls2
-        cordova build android
+          npm install -g cordova
+          cordova create cordova-app com.pashya.melodrome Melodrome
+          rm -rf cordova-app/www/*
+          cp -r www/* cordova-app/www/
+          cp config.xml cordova-app/config.xml
+          cd cordova-app
+          cordova platform add android
+          cordova plugin add cordova-plugin-file
+          cordova plugin add cordova-plugin-android-permissions
+          cordova plugin add cordova-plugin-music-controls2
+          cordova build android
 
       - name: Sediakan Tombol Download APK
         uses: actions/upload-artifact@v4
