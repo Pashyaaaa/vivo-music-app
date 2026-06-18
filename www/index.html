@@ -97,6 +97,7 @@
       );
 
       // 2. Fungsi memunculkan pop-up izin Android
+      // 2. Fungsi memunculkan pop-up izin Android (Versi Terobos)
       function requestAudioPermission() {
         if (typeof cordova === "undefined" || !cordova.plugins.permissions) {
           scanMusicFolder();
@@ -104,7 +105,6 @@
         }
 
         var permissions = cordova.plugins.permissions;
-        // Minta izin membaca media audio (Android 13+) dan storage (Android lama)
         var requiredPermissions = [
           permissions.READ_MEDIA_AUDIO,
           permissions.READ_EXTERNAL_STORAGE,
@@ -113,21 +113,17 @@
         permissions.requestPermissions(
           requiredPermissions,
           function (status) {
-            if (status.hasPermission) {
-              currentTitle.innerText = "Izin diberikan, memuat lagu...";
-              scanMusicFolder();
-            } else {
-              libraryUl.innerHTML =
-                '<li style="color:#f44336;">Izin ditolak. Tolong izinkan akses di Pengaturan HP.</li>';
-              currentTitle.innerText = "Akses Ditolak";
-            }
+            // Abaikan status.hasPermission dari Cordova karena Android 13+ selalu bikin false.
+            // Karena kamu sudah klik "Allow" di HP, kita terobos aja panggil fungsinya!
+            currentTitle.innerText = "Memuat daftar lagu...";
+            scanMusicFolder();
           },
           function () {
-            console.error("Sistem gagal memanggil pop-up izin");
+            // Kalau pluginnya bingung, tetap paksa scan!
+            scanMusicFolder();
           },
         );
       }
-
       // 3. Scan berjalan seperti biasa
       function scanMusicFolder() {
         libraryUl.innerHTML = "<li>Mencari file .mp3 di folder Music...</li>";
