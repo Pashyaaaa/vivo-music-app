@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Melodrome Native Premium</title>
+    <title>Melodrome Premium</title>
     <style>
       body {
         font-family: "Segoe UI", sans-serif;
@@ -20,7 +20,6 @@
         position: relative;
       }
 
-      /* List Lagu dengan Space untuk Index A-Z */
       .list-wrapper {
         display: flex;
         position: relative;
@@ -30,7 +29,7 @@
         padding: 0;
         margin: 0;
         width: calc(100% - 35px);
-        max-height: calc(100vh - 220px);
+        max-height: calc(100vh - 180px);
         overflow-y: auto;
         scroll-behavior: smooth;
       }
@@ -57,14 +56,12 @@
         width: 75%;
       }
 
-      /* Panel A-Z di Pinggir */
       .az-index {
         position: fixed;
         right: 10px;
         top: 80px;
         display: flex;
         flex-direction: column;
-        justify-content: flex-start;
         align-items: center;
         background: rgba(24, 24, 24, 0.8);
         border-radius: 20px;
@@ -91,7 +88,7 @@
         color: #1db954;
       }
 
-      /* Fixed Bottom Now Playing Bar */
+      /* Poin 4 & 5: Fixed Bar dengan Layout Grid Konsisten */
       .bottom-player {
         position: fixed;
         bottom: 0;
@@ -107,13 +104,20 @@
         box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.5);
       }
       .player-info {
-        display: flex;
-        justify-content: space-between;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 15px;
         align-items: center;
+        height: 45px;
       }
       .track-metadata {
-        width: 60%;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        overflow: hidden;
       }
+
       .track-title {
         margin: 0;
         font-size: 15px;
@@ -121,18 +125,19 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        color: #fff;
       }
       .track-time {
         font-size: 11px;
         color: #aaa;
-        margin-top: 2px;
+        margin-top: 4px;
       }
 
-      /* Player Controls */
       .player-buttons {
         display: flex;
         align-items: center;
         gap: 15px;
+        flex-shrink: 0;
       }
       .btn-control {
         background: none;
@@ -151,7 +156,6 @@
         color: #1db954;
       }
 
-      /* Custom Seek Bar / Slider */
       .seek-container {
         display: flex;
         align-items: center;
@@ -187,7 +191,6 @@
         <ul id="library-ul">
           <li style="color: #aaa">Mencari file musik...</li>
         </ul>
-
         <div class="az-index" id="az-index-div"></div>
       </div>
     </div>
@@ -196,8 +199,8 @@
 
     <div class="bottom-player">
       <div class="player-info">
-        <div class="track-metadata">
-          <p class="track-title" id="current-title">Tidak memutar lagu</p>
+        <div class="track-metadata" id="title-container">
+          <div class="track-title" id="current-title">Tidak memutar lagu</div>
           <div class="track-time" id="track-time-display">00:00 / 00:00</div>
         </div>
 
@@ -246,44 +249,43 @@
         "deviceready",
         () => {
           scanMusicFolder();
-
-          // Poin 2: Auto-refresh saat user kembali membuka aplikasi setelah mendownload file baru
-          document.addEventListener(
-            "resume",
-            () => {
-              scanMusicFolder();
-            },
-            false,
-          );
+          document.addEventListener("resume", scanMusicFolder, false);
         },
         false,
       );
 
       function scanMusicFolder() {
-        if (typeof cordova === "undefined") return;
+        if (typeof cordova === "undefined" || !cordova.plugins.permissions)
+          return;
 
+        cordova.plugins.permissions.requestPermissions(
+          [
+            cordova.plugins.permissions.READ_MEDIA_AUDIO,
+            cordova.plugins.permissions.READ_EXTERNAL_STORAGE,
+          ],
+          function () {
+            executeScan();
+          },
+          function () {
+            executeScan();
+          },
+        );
+      }
+
+      function executeScan() {
         window.resolveLocalFileSystemURL(
           cordova.file.externalRootDirectory + "Music/",
           (dirEntry) => {
             let directoryReader = dirEntry.createReader();
-            directoryReader.readEntries(
-              (entries) => {
-                let files = entries.filter(
-                  (e) => e.isFile && e.name.endsWith(".mp3"),
-                );
-
-                // Poin 1: Urutkan daftar lagu secara Ascending (A-Z)
-                files.sort((a, b) => a.name.localeCompare(b.name));
-
-                songEntries = files;
-                renderLibrary();
-                buildAZIndex();
-              },
-              (err) => console.error(err),
-            );
-          },
-          (err) => {
-            libraryUl.innerHTML = '<li>Folder "Music" tidak ditemukan.</li>';
+            directoryReader.readEntries((entries) => {
+              let files = entries.filter(
+                (e) => e.isFile && e.name.endsWith(".mp3"),
+              );
+              files.sort((a, b) => a.name.localeCompare(b.name));
+              songEntries = files;
+              renderLibrary();
+              buildAZIndex();
+            });
           },
         );
       }
@@ -296,27 +298,18 @@
           return;
         }
         songEntries.forEach((entry, index) => {
-          const firstLetter = entry.name.charAt(0).toUpperCase();
           const li = document.createElement("li");
           li.setAttribute("id", `song-index-${index}`);
-          // Tandai elemen pertama yang mengawali huruf tersebut untuk lompatan index A-Z
-          li.setAttribute("data-letter", firstLetter);
-
           if (index === currentIndex) li.className = "playing";
-
-          li.innerHTML = `
-                    <span>${entry.name.replace(".mp3", "")}</span>
-                    <button onclick="playSong(${index})">▶️</button>
-                `;
+          li.innerHTML = `<span>${entry.name.replace(".mp3", "")}</span>
+                                <button onclick="playSong(${index})">▶️</button>`;
           libraryUl.appendChild(li);
         });
       }
 
-      // Poin 1: Membuat tombol navigasi huruf A-Z di sisi kanan
       function buildAZIndex() {
         azIndexDiv.innerHTML = "";
         const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-
         letters.forEach((letter) => {
           const div = document.createElement("div");
           div.className = "az-letter";
@@ -326,23 +319,27 @@
         });
       }
 
+      // Poin 3: Logika A-Z mencari tetangga terdekat jika huruf tidak ada
       function scrollToLetter(letter) {
-        // Cari lagu pertama yang judulnya berawalan huruf tersebut
-        const targetIndex = songEntries.findIndex((e) =>
-          e.name.toUpperCase().startsWith(letter),
+        let targetIndex = songEntries.findIndex(
+          (e) => e.name.toUpperCase().localeCompare(letter) >= 0,
         );
+
         if (targetIndex !== -1) {
-          const targetEl = document.getElementById(`song-index-${targetIndex}`);
-          if (targetEl) {
-            targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
-          }
+          document
+            .getElementById(`song-index-${targetIndex}`)
+            .scrollIntoView({ behavior: "smooth", block: "start" });
+        } else {
+          // Jika user mencet huruf Z tapi mentok di Y, scroll ke paling bawah list
+          document
+            .getElementById(`song-index-${songEntries.length - 1}`)
+            .scrollIntoView({ behavior: "smooth", block: "end" });
         }
       }
 
       function playSong(index) {
         if (index < 0 || index >= songEntries.length) return;
 
-        // Hapus style active lama
         if (currentIndex !== -1) {
           const oldEl = document.getElementById(`song-index-${currentIndex}`);
           if (oldEl) oldEl.className = "";
@@ -350,19 +347,23 @@
 
         currentIndex = index;
         const entry = songEntries[currentIndex];
-
-        // Highlight lagu aktif
         const currentEl = document.getElementById(`song-index-${currentIndex}`);
         if (currentEl) currentEl.className = "playing";
 
         audioPlayer.src = entry.toInternalURL();
-        currentTitle.innerText = entry.name.replace(".mp3", "");
+
+        // Poin 4: Logika Marquee (Teks Jalan) Otomatis jika judul panjang
+        const cleanTitle = entry.name.replace(".mp3", "");
+        if (cleanTitle.length > 30) {
+          currentTitle.innerHTML = `<marquee scrollamount="4">${cleanTitle}</marquee>`;
+        } else {
+          currentTitle.innerText = cleanTitle;
+        }
 
         audioPlayer.play();
         btnPlay.innerText = "⏸️";
 
-        // Kirim data ke sistem native jika plugin lock screen aktif (Poin 3)
-        updateNativeMediaControls(entry.name.replace(".mp3", ""));
+        updateNativeMediaControls(cleanTitle);
       }
 
       function togglePlay() {
@@ -373,39 +374,43 @@
         if (audioPlayer.paused) {
           audioPlayer.play();
           btnPlay.innerText = "⏸️";
+          if (typeof MusicControls !== "undefined")
+            MusicControls.updateIsPlaying(true);
         } else {
           audioPlayer.pause();
           btnPlay.innerText = "▶️";
+          if (typeof MusicControls !== "undefined")
+            MusicControls.updateIsPlaying(false);
         }
       }
 
       function playNext() {
         if (songEntries.length === 0) return;
         let next = currentIndex + 1;
-        if (next >= songEntries.length) next = 0; // Loop kembali ke atas
+        if (next >= songEntries.length) next = 0;
         playSong(next);
       }
 
       function playPrev() {
         if (songEntries.length === 0) return;
         let prev = currentIndex - 1;
-        if (prev < 0) prev = songEntries.length - 1; // Lompat ke lagu paling bawah
+        if (prev < 0) prev = songEntries.length - 1;
         playSong(prev);
       }
 
-      // Poin 6: Logika Custom Slider & Sinkronisasi Waktu Putar (Bebas Bug Mengambang)
+      // Poin 1: Perbaikan Bug Slider (Seek Bar)
+      audioPlayer.addEventListener("loadedmetadata", () => {
+        seekSlider.max = 100; // Pastikan durasi sudah siap sebelum dihitung
+      });
+
       audioPlayer.addEventListener("timeupdate", () => {
         if (isUserSeeking || isNaN(audioPlayer.duration)) return;
-
         const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
         seekSlider.value = progress;
-
         formatTimeDisplay(audioPlayer.currentTime, audioPlayer.duration);
       });
 
-      audioPlayer.addEventListener("ended", () => {
-        playNext();
-      });
+      audioPlayer.addEventListener("ended", playNext);
 
       function seekingAudio() {
         isUserSeeking = true;
@@ -413,9 +418,12 @@
 
       function seekAudioFinal() {
         if (isNaN(audioPlayer.duration)) return;
-        const newTime = (seekSlider.value / 100) * audioPlayer.duration;
-        audioPlayer.currentTime = newTime;
-        isUserSeeking = false;
+        const percent = parseFloat(seekSlider.value);
+        audioPlayer.currentTime = (percent / 100) * audioPlayer.duration;
+        // Delay sepersekian detik agar slider tidak terpental balik
+        setTimeout(() => {
+          isUserSeeking = false;
+        }, 100);
       }
 
       function formatTimeDisplay(current, duration) {
@@ -429,18 +437,28 @@
         return `${min.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
       }
 
-      // Fungsi cadangan interaksi untuk sistem native lockscreen (Poin 3)
+      // Poin 2: Menambahkan parameter ikon wajib agar Android mengizinkan di Lock Screen
       function updateNativeMediaControls(title) {
         if (typeof MusicControls !== "undefined") {
-          MusicControls.create({
-            track: title,
-            artist: "Melodrome",
-            isPlaying: true,
-            dismissable: false,
-            hasPrev: true,
-            hasNext: true,
-            hasClose: false,
-          });
+          MusicControls.create(
+            {
+              track: title,
+              artist: "Melodrome",
+              isPlaying: true,
+              dismissable: false,
+              hasPrev: true,
+              hasNext: true,
+              hasClose: false,
+              playIcon: "media_play",
+              pauseIcon: "media_pause",
+              prevIcon: "media_prev",
+              nextIcon: "media_next",
+              closeIcon: "media_close",
+              notificationIcon: "notification_icon",
+            },
+            function () {},
+            function () {},
+          );
 
           MusicControls.subscribe((action) => {
             const message = JSON.parse(action).message;
@@ -453,11 +471,9 @@
                 break;
               case "music-controls-pause":
                 togglePlay();
-                MusicControls.updateIsPlaying(false);
                 break;
               case "music-controls-play":
                 togglePlay();
-                MusicControls.updateIsPlaying(true);
                 break;
               default:
                 break;
